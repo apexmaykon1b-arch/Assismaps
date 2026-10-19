@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Assis Maps — navegação, mapa 3D e dados viários com fontes identificadas" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Assis Maps</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css" />
+  <style>
+    :root{--bg:#0b1220;--panel:#111827;--card:#1a2332;--border:#2a3a52;--text:#e8eef7;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--safe:env(safe-area-inset-bottom,0px)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+    #app{display:flex;flex-direction:column;height:100%;height:100dvh}
+    header{flex:0 0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));background:var(--panel);border-bottom:1px solid var(--border);z-index:1000}
+    header h1{font-size:.95rem;font-weight:800}
+    .badge{font-size:.65rem;padding:3px 8px;border-radius:999px;font-weight:700;border:1px solid var(--border)}
+    .badge.off{background:#1e293b;color:var(--amber)}.badge.on{background:#052e16;color:var(--green);border-color:#166534}.badge.sync{background:#1e3a5f;color:#93c5fd}
+    .grow{flex:1;min-width:4px}
+    button{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 11px;font-size:.78rem;font-weight:650;cursor:pointer;min-height:40px}
+    button.primary{background:var(--blue);border-color:#2563eb}button.ghost{background:transparent}
+    #map{flex:1;min-height:0;width:100%;background:#0a0f18;position:relative;overflow:hidden}#map3d{display:none;position:absolute;inset:0;z-index:500;background:#dbeafe}#map.view3d .leaflet-container{visibility:hidden}#map.view3d #map3d{display:block}.car3d{display:none;position:absolute;z-index:700;left:50%;bottom:23%;transform:translate(-50%,50%);font-size:32px;filter:drop-shadow(0 2px 3px #000);pointer-events:none;text-shadow:0 1px 3px #fff}#map.view3d .car3d{display:block}
+    .sheet{flex:0 0 auto;max-height:48%;overflow:auto;background:var(--panel);border-top:1px solid var(--border);padding:10px 12px calc(10px + var(--safe));z-index:1000}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+    .row input,.row select{flex:1;min-width:110px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;font-size:.88rem}
+    .nav-card{display:none;background:#0f2745;border:1px solid #234b79;border-radius:14px;padding:12px;margin-bottom:9px}.nav-card.show{display:block}.nav-big{font-size:1.05rem;font-weight:800}.nav-small{font-size:.75rem;color:#bfdbfe;margin-top:4px}.car-marker{font-size:26px;filter:drop-shadow(0 2px 2px #000)}
+    .tabs{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+    .tabs button{opacity:.7;min-height:36px;padding:6px 10px}.tabs button.active{opacity:1;border-color:var(--blue);color:#93c5fd}
+    .panel{display:none}.panel.active{display:block}
+    .hint{font-size:.72rem;color:var(--muted);line-height:1.4;margin:4px 0 8px}
+    .status-line{font-size:.72rem;color:var(--muted);margin-bottom:6px}.status-line strong{color:var(--text)}
+    .chat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;max-height:150px;overflow:auto;font-size:.82rem;line-height:1.45;margin-bottom:8px;white-space:pre-wrap}
+    .chat .me{color:#93c5fd;margin:6px 0}.chat .bot{color:#e2e8f0;margin:6px 0}.chat .sys{color:var(--muted);font-size:.72rem}
+    .legend{display:flex;flex-wrap:wrap;gap:8px;font-size:.7rem;color:var(--muted)}
+    .legend span{display:inline-flex;align-items:center;gap:4px}
+    .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+    .dot.red{background:var(--red)}.dot.amber{background:var(--amber)}.dot.blue{background:var(--blue)}.dot.green{background:var(--green)}
+    label.chk{font-size:.8rem;display:inline-flex;align-items:center;gap:6px;margin-right:10px}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:none;align-items:flex-end;justify-content:center}
+    .modal-bg.show{display:flex}
+    .modal{width:100%;max-width:520px;max-height:88vh;overflow:auto;background:var(--panel);border-radius:16px 16px 0 0;padding:16px;border:1px solid var(--border);padding-bottom:calc(16px + var(--safe))}
+    .modal h2{font-size:1.05rem;margin-bottom:8px}.modal h3{font-size:.88rem;margin:12px 0 6px;color:#93c5fd}
+    .modal p,.modal li{font-size:.8rem;color:var(--muted);line-height:1.45;margin-bottom:5px}.modal ul{padding-left:18px}
+    .help-btn,.icon-btn{width:38px;min-height:38px;border-radius:50%;padding:0;font-weight:800}
+    .toast{position:fixed;left:50%;bottom:calc(18px + var(--safe));transform:translateX(-50%);background:#1e293b;border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:12px;font-size:.78rem;z-index:3000;display:none;max-width:92%;text-align:center}
+    .toast.show{display:block}
+    .install-bar{display:none;width:100%;background:#1e3a5f;border-bottom:1px solid var(--border);padding:8px 10px;font-size:.75rem;align-items:center;gap:8px;flex-wrap:wrap}
+    .install-bar.show{display:flex}
+    .leaflet-control-attribution{font-size:9px!important}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="install-bar" id="installBar">
+    <span class="grow">Instale como app para uso offline melhor.</span>
+    <button type="button" class="primary" id="btnInstall">Instalar</button>
+    <button type="button" class="ghost" id="btnDismissInstall">Agora não</button>
+  </div>
+  <header>
+    <h1>Assis Maps</h1>
+    <span id="modeBadge" class="badge off">Offline</span>
+    <span id="syncBadge" class="badge">Sync</span>
+    <div class="grow"></div>
+    <button type="button" id="btn3D" title="Perspectiva 3D">3D</button><button type="button" class="help-btn" id="btnHelp" title="Ajuda">?</button>
+    <button type="button" class="icon-btn" id="btnLocate" title="GPS">📍</button>
+  </header>
+  <div id="map" role="application" aria-label="Mapa"><div id="map3d" aria-label="Mapa vetorial 3D"></div><div id="car3d" class="car3d" aria-hidden="true">🚗</div></div>
+  <div class="sheet">
+    <div class="status-line">Última atualização: <strong id="lastSync">nunca</strong> · <span id="routeInfo">Sem rota</span> · <span id="routeMode"></span></div>
+    <div class="tabs">
+      <button type="button" class="active" data-tab="route">Rota</button>
+      <button type="button" data-tab="layers">Camadas</button>
+      <button type="button" data-tab="ai">IA Assis</button>
+      <button type="button" data-tab="data">Dados</button>
+    </div>
+    <div id="tab-route" class="panel active">
+      <div class="nav-card" id="navCard"><div class="nav-big" id="navInstruction">Pronto para navegar</div><div class="nav-small" id="navDistance">Aguardando GPS</div><div class="row" style="margin:10px 0 0"><button type="button" class="primary" id="btnStartNav">Iniciar navegação</button><button type="button" id="btnStopNav">Encerrar</button><button type="button" id="btnVoice">🔊 Voz ligada</button><button type="button" id="btnNotify">🔔 Permitir notificações</button></div></div>
+      <p class="hint"><strong>Offline:</strong> GPS + base local + rota aproximada.<br><strong>Online:</strong> recalcula a rota quando a conexão volta. Em navegador/PWA, atividade em segundo plano não é garantida; para isso, use o APK nativo com serviço em primeiro plano.</p>
+      <div class="row"><input id="fromInput" placeholder="Origem (cidade ou lat, lon)" autocomplete="off" /><button type="button" class="ghost" id="btnFromHere">GPS</button></div>
+      <div class="row"><input id="toInput" placeholder="Destino (cidade ou lat, lon)" autocomplete="off" /></div>
+      <div class="row"><select id="travelMode" aria-label="Meio de transporte"><option value="car">🚗 Carro</option><option value="motorcycle">🏍️ Moto</option><option value="foot">🚶 A pé</option></select><select id="routeStrategy" aria-label="Estratégia da rota"><option value="balanced">⚖️ Equilibrada</option><option value="economy">💸 Economia (aproximação; pedágio não garantido)</option><option value="shortest">📍 Mais curta disponível</option><option value="safety">🛡️ Segurança (alertas da base local)</option></select><label class="chk"><input type="checkbox" id="voiceOn" checked> Instruções por voz</label></div>
+      <div class="row">
+        <button type="button" class="primary" id="btnRoute">Traçar rota</button>
+        <button type="button" id="btnShareRoute">Compartilhar rota</button><button type="button" id="btnClearRoute">Limpar</button>
+        <button type="button" id="btnAnalyze">Analisar rota</button>
+      </div>
+      <div class="legend">
+        <span><i class="dot red"></i> Risco</span><span><i class="dot amber"></i> Atenção</span>
+        <span><i class="dot blue"></i> Radar</span><span><i class="dot green"></i> Pedágio</span>
+      </div>
+    </div>
+    <div id="tab-layers" class="panel">
+      <p class="hint">Os marcadores só aparecem quando você importa ou configura dados com origem verificável. Não há radares, pedágios ou acidentes fictícios pré-carregados.</p><div class="row"><button type="button" id="btnOfficialSources">Fontes oficiais</button></div><div id="sourceLinks" class="hint" style="display:none"><button type="button" id="btnCheckSources">Verificar fontes e integrações</button><div id="sourceStatus" style="margin:8px 0">Status ainda não consultado.</div><a target="_blank" rel="noopener" href="https://www.gov.br/prf/pt-br/assuntos/fiscalizacao-de-velocidade/radares-fixos">PRF — radares fixos</a><br><a target="_blank" rel="noopener" href="https://www.gov.br/dnit/pt-br/acesso-a-informacao/dados-abertos/conjuntos-de-dados">DNIT — dados abertos, pavimento e controle de velocidade</a><br><a target="_blank" rel="noopener" href="https://www.gov.br/prf/pt-br/acesso-a-informacao/dados-abertos/dados-abertos">PRF — dados abertos</a></div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="lyRadar" checked> Radares</label>
+        <label class="chk"><input type="checkbox" id="lyToll" checked> Pedágios</label>
+        <label class="chk"><input type="checkbox" id="lyRisk" checked> Riscos</label>
+        <label class="chk"><input type="checkbox" id="lyTraffic" checked> Trânsito</label>
+      </div>
+    </div>
+    <div id="tab-ai" class="panel">
+      <p class="hint">O relatório reúne rota, cidades/localidades retornadas pelo serviço de rotas e dados disponíveis. Radares, acidentes e trânsito ao vivo só são confiáveis se houver fonte atualizada; a base demonstrativa não é dado oficial.</p>
+      <div class="chat" id="chatBox"></div>
+      <div class="row"><input id="chatInput" placeholder="radar? pedágio? analisar rota?" /><button type="button" class="primary" id="btnSend">Enviar</button></div>
+    </div>
+    <div id="tab-data" class="panel">
+      <p class="hint">Base neste aparelho. Sync com rede mesmo com outro app aberto (melhor no APK).</p>
+      <div class="row">
+        <button type="button" class="primary" id="btnSync">Atualizar agora</button>
+        <button type="button" id="btnExport">Exportar JSON</button>
+        <button type="button" id="btnImport">Importar JSON</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
+      </div>
+      <p class="hint" id="dataStats">—</p>
+      <p class="hint">APK: publique a pasta → <strong>pwabuilder.com</strong>. Mapa offline de estado + IA 5B = versão nativa futura.</p>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="helpModal"><div class="modal">
+  <h2>Assis Maps — guia</h2>
+  <h3>Modos</h3>
+  <p><strong>Offline:</strong> GPS, base local, rota em linha (aproximada). Tiles só onde já abriu online.</p>
+  <p><strong>Online:</strong> rota real (OSRM), nomes de cidades, sync da base.</p>
+  <h3>Botões</h3>
+  <ul>
+    <li><strong>📍</strong> posição GPS</li>
+    <li><strong>GPS</strong> origem = você</li>
+    <li><strong>Traçar rota</strong> caminho A→B</li>
+    <li><strong>Analisar rota</strong> radares/pedágios/riscos no trecho</li><li><strong>Compartilhar rota</strong> envia o relatório e link para outros veículos</li><li><strong>Estratégia</strong> tenta escolher entre economia, menor distância e equilíbrio; a segurança usa apenas a base local disponível</li>
+    <li><strong>Atualizar agora</strong> sync (precisa rede)</li>
+  </ul>
+  <h3>Avisos</h3>
+  <p>Não substitui placas. Não use o celular em movimento. Trânsito completo e mapa offline de país exigem app nativo + API.</p>
+  <div class="row" style="margin-top:12px"><button type="button" class="primary" id="btnCloseHelp">Entendi</button></div>
+</div></div>
+<div class="modal-bg" id="welcomeModal"><div class="modal">
+  <h2>Assis Maps v3</h2>
+  <p>Versão web para testar e publicar como app.</p>
+  <ul>
+    <li>Offline: base local + GPS + rota aproximada</li>
+    <li>Online: rota real + sync automático</li>
+    <li>IA Assis sem inventar dados</li>
+  </ul>
+  <div class="row" style="margin-top:12px"><button type="button" class="primary" id="btnStart">Começar</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+const STORAGE='assis_maps_final_v1', WELCOME='assis_maps_welcome_v1';
+const $=id=>document.getElementById(id);
+const DEFAULT={updatedAt:null,version:1,
+radars:[],
+tolls:[],
+risks:[],
+trafficHints:[]
+};
+let community={radars:[],tolls:[],risks:[],trafficHints:[]},roadFetchAt=0,roadFetchBusy=false;
+let data=loadData(),map,routeLine,fromMarker,toMarker,userMarker,carMarker=null,fromLL=null,toLL=null,routeCoords=[],routeSteps=[],layers={},online=navigator.onLine,deferredPrompt=null,lastOfflineRoute=false,navigating=false,watchId=null,stepIndex=0,lastSpoken=-1,voiceEnabled=true,lastRouteRefresh=0,refreshingRoute=false;
+function loadData(){try{const j=JSON.parse(localStorage.getItem(STORAGE));if(j)return{updatedAt:j.updatedAt||null,version:j.version||1,radars:j.radars||DEFAULT.radars,tolls:j.tolls||DEFAULT.tolls,risks:j.risks||DEFAULT.risks,trafficHints:j.trafficHints||[]}}catch(e){}return JSON.parse(JSON.stringify(DEFAULT))}
+function saveData(){localStorage.setItem(STORAGE,JSON.stringify(data));updateStatusUI()}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),4500)}
+function stamp(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+async function notifyUser(title,body){if(!('Notification'in window)||Notification.permission!=='granted')return;try{if('serviceWorker'in navigator){const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,icon:'./icon-192.png',badge:'./icon-192.png',tag:'assis-route-update'});}else new Notification(title,{body});}catch(e){console.warn('Notificação indisponível',e)}}
+async function requestNotifications(){if(!('Notification'in window))return toast('Notificações não suportadas neste navegador. No APK, configure o serviço Android.');try{const permission=await Notification.requestPermission();if(permission==='granted'){toast('Notificações permitidas');notifyUser('Assis Maps','Notificações ativadas. A execução em segundo plano depende do sistema.')}else toast('Permissão de notificação não concedida')}catch(e){toast('Não foi possível pedir permissão. Instale o app pela Vercel em HTTPS.')}}
+function updateStatusUI(){$('modeBadge').textContent=online?'Online':'Offline';$('modeBadge').className='badge '+(online?'on':'off');$('lastSync').textContent=data.updatedAt?new Date(data.updatedAt).toLocaleString('pt-BR'):'aguardando fontes';$('dataStats').textContent='Radares '+(data.radars.length+community.radars.length)+' · Pedágios '+(data.tolls.length+community.tolls.length)+' · Alertas '+(data.risks.length+community.risks.length)+' (OSM comunitário)';$('syncBadge').textContent=online?'Rede OK':'Sem rede';$('syncBadge').className='badge '+(online?'on':'off')}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function initMap(){map=L.map('map',{zoomControl:true}).setView([-26.08,-53.05],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);layers.radar=L.layerGroup().addTo(map);layers.toll=L.layerGroup().addTo(map);layers.risk=L.layerGroup().addTo(map);layers.traffic=L.layerGroup().addTo(map);plotLayers();setTimeout(()=>map.invalidateSize(true),250);window.addEventListener('resize',()=>map.invalidateSize(true));map.on('moveend',()=>fetchCommunityRoadData(false));setTimeout(()=>fetchCommunityRoadData(false),800)}
+function icon(color,lab){return L.divIcon({className:'',html:'<div style="background:'+color+';color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)">'+lab+'</div>',iconSize:[28,28],iconAnchor:[14,14]})}
+function plotLayers(){layers.radar.clearLayers();layers.toll.clearLayers();layers.risk.clearLayers();layers.traffic.clearLayers();
+if($('lyRadar').checked)[...data.radars,...community.radars].forEach(r=>{L.marker([r.lat,r.lon],{icon:icon('#3b82f6','R')}).bindPopup('<strong>'+esc(r.name)+'</strong><br>'+(r.speed!=null?r.speed+' km/h':'velocidade não informada')+'<br>'+esc(r.note||'')).addTo(layers.radar)});
+if($('lyToll').checked)[...data.tolls,...community.tolls].forEach(t=>{L.marker([t.lat,t.lon],{icon:icon('#22c55e','$')}).bindPopup('<strong>'+esc(t.name)+'</strong><br>'+(t.price!=null?'R$ '+t.price:'valor não informado (não sei)')+'<br>'+esc(t.note||'')).addTo(layers.toll)});
+if($('lyRisk').checked)[...data.risks,...community.risks].forEach(k=>{const c=k.level==='high'?'#ef4444':'#f59e0b',l=k.level==='high'?'!':'?';L.marker([k.lat,k.lon],{icon:icon(c,l)}).bindPopup('<strong>'+esc(k.name)+'</strong><br>'+esc(k.note||'')).addTo(layers.risk)});
+if($('lyTraffic').checked)([...(data.trafficHints||[]),...community.trafficHints]).forEach(h=>{if(h.lat==null)return;L.circleMarker([h.lat,h.lon],{radius:9,color:'#f97316',fillOpacity:.35}).bindPopup(esc(h.note||'Trânsito')).addTo(layers.traffic)})}
+function parseCoord(q){const m=String(q||'').trim().match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);return m?{lat:+m[1],lon:+m[2],display:m[1]+', '+m[2]}:null}
+async function geocode(q){const c=parseCoord(q);if(c)return c;if(!q||!String(q).trim())return null;if(!online){toast('Offline: GPS ou lat, lon');return null}
+let res;try{res=await fetch('/api/geocode?q='+encodeURIComponent(q));if(!res.ok)throw new Error('API local indisponível');}catch(e){res=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=pt-BR&q='+encodeURIComponent(q),{headers:{'Accept-Language':'pt-BR'}})}if(!res.ok)throw new Error('Geocodificador indisponível');const arr=await res.json();if(!arr.length)return null;return{lat:+arr[0].lat,lon:+arr[0].lon,display:arr[0].display_name}}
+async function routeOnline(a,b){const mode=$('travelMode').value;let res;try{res=await fetch('/api/route?aLat='+a.lat+'&aLon='+a.lon+'&bLat='+b.lat+'&bLon='+b.lon+'&mode='+encodeURIComponent(mode));if(!res.ok)throw new Error('API de rota indisponível');}catch(e){const base=mode==='foot'?'https://routing.openstreetmap.de/routed-foot/route/v1/driving/':'https://router.project-osrm.org/route/v1/driving/';res=await fetch(base+a.lon+','+a.lat+';'+b.lon+','+b.lat+'?overview=full&geometries=geojson&steps=true&alternatives=true')}if(!res.ok)throw new Error('Serviço público de rotas indisponível');const j=await res.json();if(j.code!=='Ok'||!j.routes||!j.routes[0])throw new Error(j.error||'Rota não encontrada');const strategy=$('routeStrategy')?.value||'balanced';let routes=j.routes;if(strategy==='shortest'||strategy==='economy')routes=[...routes].sort((x,y)=>x.distance-y.distance);else routes=[...routes].sort((x,y)=>x.duration-y.duration);return routes[0]}
+async function fetchCommunityRoadData(force){if(!online||roadFetchBusy||(!force&&Date.now()-roadFetchAt<60000)||!map)return;roadFetchBusy=true;roadFetchAt=Date.now();try{const b=map.getBounds(),p=new URLSearchParams({s:b.getSouth().toFixed(5),w:b.getWest().toFixed(5),n:b.getNorth().toFixed(5),e:b.getEast().toFixed(5)});let res;try{res=await fetch('/api/road-data?'+p.toString());if(!res.ok)throw new Error('API não disponível');}catch(e){const box=[b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].join(',');const q='[out:json][timeout:15];(node[highway=speed_camera]('+box+');node[enforcement=maxspeed]('+box+');node[barrier=toll_booth]('+box+');node[highway=toll_gantry]('+box+');node[highway=roadworks]('+box+');node[construction]('+box+');way[highway=roadworks]('+box+');way[construction]('+box+');node[hazard]('+box+'););out center tags;';res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(q)});}if(!res.ok)throw new Error('Fonte comunitária temporariamente indisponível');const j=await res.json();const elements=j.features||j.elements||[];community={radars:[],tolls:[],risks:[],trafficHints:[]};for(const el of elements){if(el.type&&el.lat!=null){const tags=el.tags||{},type=el.type;const f={lat:el.lat,lon:el.lon,name:el.name||tags.name||'Ponto viário OSM',note:el.note||Object.entries(tags).filter(([k])=>['maxspeed','operator','hazard','surface','smoothness','construction','access'].includes(k)).map(([k,v])=>k+': '+v).join(' · '),source:'OpenStreetMap comunitário',official:false,speed:el.speed||null,price:null};if(type==='radar')community.radars.push(f);else if(type==='toll')community.tolls.push(f);else if(type==='roadwork')community.trafficHints.push({...f,note:'Obra mapeada pela comunidade; não é feed ao vivo'});else community.risks.push(f)}else{const tags=el.tags||{},lat=el.lat??el.center?.lat,lon=el.lon??el.center?.lon;if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;let type='risk';if(tags.highway==='speed_camera'||tags.enforcement==='maxspeed')type='radar';else if(tags.barrier==='toll_booth'||tags.highway==='toll_gantry')type='toll';else if(tags.highway==='roadworks'||tags.construction)type='roadwork';const f={lat,lon,name:tags.name||tags.ref||'Ponto viário OSM',note:Object.entries(tags).filter(([k])=>['maxspeed','operator','hazard','surface','smoothness','construction','access'].includes(k)).map(([k,v])=>k+': '+v).join(' · '),source:'OpenStreetMap comunitário',official:false,speed:tags.maxspeed?parseInt(tags.maxspeed,10)||null:null,price:null};if(type==='radar')community.radars.push(f);else if(type==='toll')community.tolls.push(f);else if(type==='roadwork')community.trafficHints.push({...f,note:'Obra mapeada pela comunidade; não é feed ao vivo'});else community.risks.push(f)}}try{const tr=await fetch('/api/traffic?'+p.toString());if(tr.ok){const tj=await tr.json();if(tj.available&&Array.isArray(tj.features)){community.trafficHints.push(...tj.features.map(f=>({...f,note:(f.note||f.name)+' · '+f.source+' · incidente reportado pelo provedor; confirme condições locais'})));window.assisTrafficStatus={provider:tj.provider,updatedAt:tj.updatedAt,available:true};}else{window.assisTrafficStatus={available:false,message:tj.message||'Provedor de trânsito ao vivo não configurado'};}}}catch(te){window.assisTrafficStatus={available:false,message:'Integração de incidentes indisponível'};}data.updatedAt=j.updatedAt||new Date().toISOString();plotLayers();updateStatusUI();}catch(e){console.warn('Dados viários comunitários:',e.message)}finally{roadFetchBusy=false}}
+function hav(a,b,c,d){const R=6371,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,z=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return R*2*Math.atan2(Math.sqrt(z),Math.sqrt(1-z))}
+function near(list,coords,km){if(!coords.length)return list;return list.filter(p=>coords.some(c=>hav(p.lat,p.lon,c[0],c[1])<=km))}
+async function doRoute(){try{toast('Calculando…');let from=fromLL,to=toLL;
+if(!from){const g=await geocode($('fromInput').value);if(!g){toast('Origem inválida');return}from={lat:g.lat,lon:g.lon};$('fromInput').value=g.display||$('fromInput').value}
+if(!to){const g=await geocode($('toInput').value);if(!g){toast('Destino inválido');return}to={lat:g.lat,lon:g.lon};$('toInput').value=g.display||$('toInput').value}
+fromLL=from;toLL=to;if(fromMarker)map.removeLayer(fromMarker);if(toMarker)map.removeLayer(toMarker);
+fromMarker=L.marker([from.lat,from.lon]).addTo(map).bindPopup('Origem');toMarker=L.marker([to.lat,to.lon]).addTo(map).bindPopup('Destino');
+let coords,km,min,label;routeSteps=[];
+if(online){try{const r=await routeOnline(from,to);coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);km=(r.distance/1000).toFixed(1);min=Math.round(r.duration/60);label='rota real online · '+modeLabel();lastOfflineRoute=false;routeSteps=(r.legs||[]).flatMap(l=>l.steps||[]).map(st=>({name:st.name||'',distance:st.distance||0,location:st.maneuver&&st.maneuver.location?[st.maneuver.location[1],st.maneuver.location[0]]:null,type:st.maneuver&&st.maneuver.type,modifier:st.maneuver&&st.maneuver.modifier})).filter(st=>st.location)}
+catch(e){toast('Não foi possível calcular rota real neste modo. '+e.message);return}}
+else{toast('É necessária internet para calcular a rota real.');return}
+routeCoords=coords;window.routeCoords=routeCoords;if(routeLine)map.removeLayer(routeLine);
+routeLine=L.polyline(coords,{color:lastOfflineRoute?'#f59e0b':'#3b82f6',weight:5,opacity:.9,dashArray:lastOfflineRoute?'8 10':null}).addTo(map);window.updateAssis3DRoute&&window.updateAssis3DRoute();
+map.fitBounds(routeLine.getBounds(),{padding:[40,40]});$('routeInfo').textContent=km+' km · ~'+min+' min';$('routeMode').textContent=label;$('navCard').classList.add('show');$('navInstruction').textContent=routeSteps.length?instruction(routeSteps[0]):'Rota pronta';$('navDistance').textContent='Toque em Iniciar navegação para acompanhar pelo GPS';toast('Rota pronta');chatSys('Rota: '+km+' km · '+label)}
+catch(e){toast(e.message||'Erro')}}
+function modeLabel(){return ({car:'carro',motorcycle:'moto',foot:'a pé'})[$('travelMode').value]||'carro'}
+function instruction(st){let action='Continue em frente';if(st.type==='arrive')action='Você chegou ao destino';else if(st.type==='turn'&&st.modifier)action='Vire '+({'left':'à esquerda','right':'à direita','slight left':'levemente à esquerda','slight right':'levemente à direita','sharp left':'acentuadamente à esquerda','sharp right':'acentuadamente à direita','uturn':'faça o retorno'}[st.modifier]||st.modifier);else if(st.type==='roundabout'||st.type==='rotary')action='Entre na rotatória';else if(st.type==='depart')action='Comece a seguir a rota';return action+(st.name?' na '+st.name:'')}
+function speak(t){if(!voiceEnabled||!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';speechSynthesis.speak(u)}
+function startNav(){if(!routeCoords.length)return toast('Trace uma rota primeiro');if(!navigator.geolocation)return toast('GPS indisponível');navigating=true;stepIndex=0;lastSpoken=-1;$('car3d').textContent=$('travelMode').value==='foot'?'🚶':$('travelMode').value==='motorcycle'?'🏍️':'🚗';$('car3d').style.display=perspective3D?'block':'none';$('navCard').classList.add('show');$('btnStartNav').textContent='Navegação ativa';if(carMarker)map.removeLayer(carMarker);carMarker=L.marker(routeCoords[0],{icon:L.divIcon({className:'',html:'<div class="car-marker">'+($('travelMode').value==='foot'?'🚶':$('travelMode').value==='motorcycle'?'🏍️':'🚗')+'</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(map);watchId=navigator.geolocation.watchPosition(onNavPosition,()=>toast('Falha no GPS; confira a permissão'),{enableHighAccuracy:true,maximumAge:1500,timeout:12000});speak('Navegação iniciada. '+(routeSteps[0]?instruction(routeSteps[0]):''))}
+function onNavPosition(p){if(!navigating)return;const ll=[p.coords.latitude,p.coords.longitude];if(carMarker)carMarker.setLatLng(ll);const bearing=(typeof p.coords.heading==='number'&&p.coords.heading>=0)?p.coords.heading:null;map.setView(ll,17,{animate:true});if(bearing!==null){const el=carMarker&&carMarker.getElement();if(el){const inner=el.querySelector('.car-marker');if(inner)inner.style.transform='rotate('+bearing+'deg)'}if(perspective3D&&window.assistMap3D)window.assistMap3D.easeTo({center:[ll[1],ll[0]],zoom:17,pitch:60,bearing,duration:500});}if(perspective3D&&window.assistMap3D&&!bearing)window.assistMap3D.easeTo({center:[ll[1],ll[0]],zoom:16,pitch:55,duration:500});if(navigator.onLine&&Date.now()-lastRouteRefresh>120000)refreshActiveRoute('checagem periódica');if(!routeSteps.length)return;let best=stepIndex,bestD=Infinity;for(let i=Math.max(0,stepIndex-1);i<Math.min(routeSteps.length,stepIndex+5);i++){const loc=routeSteps[i].location;if(!loc)continue;const d=hav(ll[0],ll[1],loc[0],loc[1]);if(d<bestD){bestD=d;best=i}}stepIndex=best;const st=routeSteps[stepIndex];$('navInstruction').textContent=instruction(st);$('navDistance').textContent=st.name||'Siga a rota indicada';if(bestD<0.12&&lastSpoken!==stepIndex){lastSpoken=stepIndex;speak(instruction(st))}if(st.type==='arrive'&&bestD<0.05){speak('Você chegou ao destino');stopNav()}}
+function stopNav(){navigating=false;$('car3d').style.display='none';if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;if(carMarker){map.removeLayer(carMarker);carMarker=null}$('btnStartNav').textContent='Iniciar navegação'}
+function clearRoute(){stopNav();if(routeLine)map.removeLayer(routeLine);routeLine=null;if(fromMarker)map.removeLayer(fromMarker);fromMarker=null;if(toMarker)map.removeLayer(toMarker);toMarker=null;routeCoords=[];window.routeCoords=routeCoords;window.updateAssis3DRoute&&window.updateAssis3DRoute();fromLL=toLL=null;$('routeInfo').textContent='Sem rota';$('routeMode').textContent=''}
+function buildRouteReport(){if(!routeCoords.length)return 'Ainda não existe rota calculada.';const strategy=$('routeStrategy')?.selectedOptions[0]?.textContent||'Equilibrada';const mode=modeLabel();const names=[...new Set(routeSteps.map(s=>s.name).filter(Boolean))];const nR=near(data.radars,routeCoords,4),nT=near(data.tolls,routeCoords,6),nK=near(data.risks,routeCoords,6);return 'RELATÓRIO DA ROTA — ASSIS MAPS\nModo: '+mode+'\nEstratégia selecionada: '+strategy+'\nOrigem: '+$('fromInput').value+'\nDestino: '+$('toInput').value+'\nDistância/tempo: '+$('routeInfo').textContent+'\nVias retornadas pelo roteador: '+(names.slice(0,35).join(', ')||'não fornecidas')+'\nRadares na base local próxima ao trajeto: '+nR.length+' ('+nR.map(x=>x.name+(x.speed?' '+x.speed+' km/h':'')).join('; ')+')\nPedágios na base local: '+nT.length+' ('+nT.map(x=>x.name+(x.price!=null?' R$ '+x.price:' preço não confirmado')).join('; ')+')\nPontos de atenção na base local: '+nK.length+' ('+nK.map(x=>x.name+(x.note?' — '+x.note:'')).join('; ')+')\nTrânsito/acidentes ao vivo: não verificados por fonte ao vivo nesta versão. Economia é aproximação pela distância entre alternativas; não garante evitar pedágios. Segurança informa riscos da base local, mas não calcula risco oficial nem altera a rota automaticamente.\nLimitação: os pontos de radar/pedágio/risco podem ser exemplos ou dados desatualizados; não usar como fonte oficial. Verifique placas, condições reais e fontes oficiais.'} 
+async function shareRoute(){if(!routeCoords.length)return toast('Trace uma rota primeiro');const report=buildRouteReport();const url='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent($('fromInput').value)+'&destination='+encodeURIComponent($('toInput').value)+'&travelmode='+($('travelMode').value==='foot'?'walking':'driving');try{if(navigator.share){await navigator.share({title:'Rota do Assis Maps',text:report,url});}else{await navigator.clipboard.writeText(report+'\n\nAbrir rota: '+url);toast('Relatório e link copiados')} }catch(e){if(e.name!=='AbortError')toast('Não foi possível compartilhar neste aparelho')}}
+function analyzeRoute(){if(!routeCoords.length){chatBot('Trace uma rota antes.');return}
+const nR=near(data.radars,routeCoords,4),nT=near(data.tolls,routeCoords,6),nK=near(data.risks,routeCoords,6);
+let m='Análise (base local'+(online?' · online':'')+(lastOfflineRoute?' · rota aproximada':'')+'):\n';
+m+='• Radares: '+nR.length+'\n';nR.forEach(r=>{m+='  – '+r.name+': '+(r.speed!=null?r.speed+' km/h':'não sei')+'\n'});
+m+='• Pedágios: '+nT.length+'\n';nT.forEach(t=>{m+='  – '+t.name+': '+(t.price!=null?'R$ '+t.price:'não sei o valor')+'\n'});
+m+='• Riscos: '+nK.length+'\n';nK.forEach(k=>{m+='  – '+k.name+(k.note?' — '+k.note:'')+'\n'});
+if(!online)m+='• Trânsito ao vivo: offline.\n';m+='\nPontos comunitários OSM: não são confirmação oficial de radares nem acidentes; preços de pedágio e trânsito ao vivo não estão disponíveis nesta integração. Não substitui placas.';chatBot(m)}
+function chatBot(t){const d=document.createElement('div');d.className='bot';d.textContent='Assis: '+t;$('chatBox').appendChild(d);$('chatBox').scrollTop=$('chatBox').scrollHeight}
+function chatMe(t){const d=document.createElement('div');d.className='me';d.textContent='Você: '+t;$('chatBox').appendChild(d)}
+function chatSys(t){const d=document.createElement('div');d.className='sys';d.textContent=t;$('chatBox').appendChild(d)}
+function handleChat(text){const raw=(text||'').trim();if(!raw)return;chatMe(raw);const q=raw.toLowerCase();
+if(q.includes('analisar')||q.includes('análise')||q.includes('analise'))return analyzeRoute();
+if(q.includes('relatório')||q.includes('relatorio')||q.includes('resumo da rota'))return chatBot(buildRouteReport());if(q.includes('radar')){const n=routeCoords.length?near(data.radars,routeCoords,6):data.radars;if(!n.length)return chatBot('Nenhum radar identificado na base local ou nos dados comunitários OSM para esta área. Isso não confirma ausência de fiscalização.');let m='Radares:\n';n.slice(0,10).forEach(r=>{m+='• '+r.name+': '+(r.speed!=null?r.speed+' km/h':'não sei')+'\n'});return chatBot(m)}
+if(q.includes('pedágio')||q.includes('pedagio')){const n=routeCoords.length?near(data.tolls,routeCoords,10):data.tolls;if(!n.length)return chatBot('Nenhum pedágio identificado na base local/OSM nesta área. Isso não confirma ausência de pedágio. Preços não são integrados.');let m='';n.forEach(t=>{m+='• '+t.name+': '+(t.price!=null?'R$ '+t.price:'não sei o valor')+'\n'});return chatBot(m)}
+if(q.includes('risco')||q.includes('acidente')){const n=routeCoords.length?near(data.risks,routeCoords,8):data.risks;if(!n.length)return chatBot('Nenhum ponto de atenção identificado na base local/OSM. Não é uma confirmação de ausência de risco ou acidente.');let m='';n.forEach(k=>{m+='• '+k.name+(k.note?' — '+k.note:'')+'\n'});return chatBot(m)}
+if(q.includes('offline')||q.includes('online'))return chatBot(online?'Online: rota real e sync.':'Offline: GPS + base + rota aproximada.');
+chatBot('Pergunte radar, pedágio, risco ou “analisar rota”. Sem dado → não sei.')}
+// Atualização automática: o app verifica novas versões ao recuperar internet.
+// Dados dinâmicos só são importados quando uma URL de fonte confiável é configurada.
+const DATA_SYNC_URL = localStorage.getItem('assis_maps_data_url') || '';
+async function syncNow(silent){
+ if(!navigator.onLine){if(!silent)toast('Sem internet');return}
+ if(!silent){$('syncBadge').textContent='Verificando atualizações…';$('syncBadge').className='badge sync'}
+ try{
+   if('serviceWorker' in navigator && navigator.serviceWorker.controller){
+     const reg=await navigator.serviceWorker.getRegistration(); if(reg) await reg.update();
+   }
+   if(DATA_SYNC_URL){
+     const res=await fetch(DATA_SYNC_URL,{cache:'no-store',headers:{'Accept':'application/json'}});
+     if(!res.ok)throw new Error('Fonte de dados respondeu '+res.status);
+     const j=await res.json();
+     if(!j || !Array.isArray(j.radars) || !Array.isArray(j.tolls) || !Array.isArray(j.risks)) throw new Error('Formato da fonte inválido');
+     data={updatedAt:j.updatedAt||new Date().toISOString(),version:j.version||data.version+1,radars:j.radars,tolls:j.tolls,risks:j.risks,trafficHints:Array.isArray(j.trafficHints)?j.trafficHints:[]};
+     saveData();plotLayers();if(!silent)toast('Dados atualizados de uma fonte configurada');
+     chatSys('Dados atualizados: '+new Date(data.updatedAt).toLocaleString('pt-BR'));
+   }else{
+     updateStatusUI();
+     if(!silent)toast('App atualizado/verificado. Para atualizar radares, pedágios e acidentes, configure uma fonte de dados confiável.');
+   }
+ }catch(e){if(!silent)toast('Atualização não concluída: '+e.message)}
+ updateStatusUI();
+}
+function onOnline(){online=true;updateStatusUI();const msg='Acesso à internet recuperado às '+stamp()+'. Atualizando informações da rota; estimativa de até 30 segundos.';toast(msg);notifyUser('Assis Maps — conexão recuperada',msg);syncNow(false).then(async()=>{if(navigating&&fromLL&&toLL){await refreshActiveRoute('internet recuperada')}})}
+function onOffline(){online=false;updateStatusUI();const msg='Sem internet desde '+stamp()+'. Mantendo a última rota e dados locais disponíveis.';toast(msg);notifyUser('Assis Maps — offline',msg)}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&navigator.onLine)syncNow(true)});
+window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);
+setInterval(()=>{if(navigator.onLine){syncNow(true);fetchCommunityRoadData(true)}},5*60*1000);
+async function refreshActiveRoute(reason){if(!navigating||!navigator.onLine||!fromLL||!toLL||refreshingRoute||Date.now()-lastRouteRefresh<15000)return;refreshingRoute=true;lastRouteRefresh=Date.now();const started=Date.now();const startMsg='Atualizando informações da rota ('+reason+') — previsão de até 30 segundos.';toast(startMsg);notifyUser('Assis Maps — atualizando rota',startMsg);try{const r=await routeOnline(fromLL,toLL);const coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);routeSteps=(r.legs||[]).flatMap(l=>l.steps||[]).map(st=>({name:st.name||'',distance:st.distance||0,location:st.maneuver&&st.maneuver.location?[st.maneuver.location[1],st.maneuver.location[0]]:null,type:st.maneuver&&st.maneuver.type,modifier:st.maneuver&&st.maneuver.modifier})).filter(st=>st.location);routeCoords=coords;window.routeCoords=routeCoords;if(routeLine)map.removeLayer(routeLine);routeLine=L.polyline(coords,{color:'#3b82f6',weight:5,opacity:.9}).addTo(map);window.updateAssis3DRoute&&window.updateAssis3DRoute();$('routeInfo').textContent=(r.distance/1000).toFixed(1)+' km · ~'+Math.round(r.duration/60)+' min';$('routeMode').textContent='rota atualizada online · '+modeLabel();$('navInstruction').textContent=routeSteps[stepIndex]?instruction(routeSteps[stepIndex]):'Rota atualizada';const msg='Atualização concluída às '+stamp()+' ('+Math.max(1,Math.round((Date.now()-started)/1000))+' s). Rota e instruções recalculadas.';toast(msg);notifyUser('Assis Maps — rota atualizada',msg);chatSys(msg)}catch(e){const msg='Atualização da rota não concluída às '+stamp()+': '+e.message;toast(msg);notifyUser('Assis Maps — falha na atualização',msg)}finally{refreshingRoute=false}}
+function locate(){if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{const lat=p.coords.latitude,lon=p.coords.longitude;if(userMarker)map.removeLayer(userMarker);userMarker=L.circleMarker([lat,lon],{radius:8,color:'#22c55e',fillOpacity:.9}).addTo(map);map.setView([lat,lon],14);toast('GPS ok')},()=>toast('GPS falhou'),{enableHighAccuracy:true,timeout:12000})}
+function useGpsFrom(){if(!navigator.geolocation)return toast('Sem GPS');navigator.geolocation.getCurrentPosition(p=>{fromLL={lat:p.coords.latitude,lon:p.coords.longitude};$('fromInput').value=fromLL.lat.toFixed(5)+', '+fromLL.lon.toFixed(5);toast('Origem=GPS')},()=>toast('GPS falhou'),{enableHighAccuracy:true,timeout:12000})}
+let perspective3D=false; $('btn3D').addEventListener('click',()=>{perspective3D=!perspective3D;$('map').classList.toggle('view3d',perspective3D);$('btn3D').textContent=perspective3D?'2D':'3D';if(perspective3D){$('car3d').style.display=navigating?'block':'none';if(window.initAssis3D)window.initAssis3D();setTimeout(()=>window.assistMap3D&&window.assistMap3D.resize(),100);window.updateAssis3DRoute&&window.updateAssis3DRoute();toast('Mapa vetorial 3D: prédios quando houver dados disponíveis.')}else{$('car3d').style.display='none';map.invalidateSize(true);toast('Mapa 2D')}}); $('btnOfficialSources').addEventListener('click',()=>{const e=$('sourceLinks');e.style.display=e.style.display==='none'?'block':'none'});
+$('btnCheckSources')?.addEventListener('click',async()=>{const box=$('sourceStatus');box.textContent='Consultando fontes…';try{const r=await fetch('/api/data-sources');if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();const rows=(j.sources||[]).map(x=>'<div><strong>'+esc(x.name)+'</strong>: '+esc(x.status)+' — '+esc(x.note||'')+' <a href="'+esc(x.url)+'" target="_blank" rel="noopener">fonte</a></div>');if(j.dnitDiscovered?.length)rows.push('<div><strong>DNIT descoberto via CKAN:</strong> '+j.dnitDiscovered.map(x=>esc(x.name)).join(', ')+'</div>');box.innerHTML=rows.join('')+'<p>Atualizado: '+esc(new Date(j.updatedAt).toLocaleString('pt-BR'))+'</p>';}catch(e){box.textContent='Não foi possível consultar o status: '+e.message;}});
+
+document.querySelectorAll('.tabs button').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');$('tab-'+btn.dataset.tab).classList.add('active')})});
+$('btnRoute').onclick=()=>doRoute();$('btnShareRoute').onclick=()=>shareRoute();$('btnClearRoute').onclick=()=>clearRoute();$('btnStartNav').onclick=()=>startNav();$('btnStopNav').onclick=()=>stopNav();$('btnVoice').onclick=()=>{voiceEnabled=!voiceEnabled;$('voiceOn').checked=voiceEnabled;$('btnVoice').textContent=voiceEnabled?'🔊 Voz ligada':'🔇 Voz desligada';if(!voiceEnabled&&'speechSynthesis'in window)speechSynthesis.cancel()};$('voiceOn').onchange=e=>voiceEnabled=e.target.checked;$('btnAnalyze').onclick=()=>analyzeRoute();
+$('btnLocate').onclick=()=>locate();$('btnFromHere').onclick=()=>useGpsFrom();$('btnSync').onclick=()=>syncNow(false);$('btnNotify').onclick=()=>requestNotifications();
+$('btnHelp').onclick=()=>$('helpModal').classList.add('show');$('btnCloseHelp').onclick=()=>$('helpModal').classList.remove('show');
+$('btnStart').onclick=()=>{localStorage.setItem(WELCOME,'1');$('welcomeModal').classList.remove('show')};
+$('btnSend').onclick=()=>{const v=$('chatInput').value;$('chatInput').value='';handleChat(v)};
+$('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const v=$('chatInput').value;$('chatInput').value='';handleChat(v)}});
+['lyRadar','lyToll','lyRisk','lyTraffic'].forEach(id=>$(id).addEventListener('change',plotLayers));
+$('btnExport').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='assis-maps-base.json';a.click()};
+$('btnImport').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);data={updatedAt:j.updatedAt||new Date().toISOString(),version:j.version||1,radars:j.radars||data.radars,tolls:j.tolls||data.tolls,risks:j.risks||data.risks,trafficHints:j.trafficHints||[]};saveData();plotLayers();toast('Importado')}catch(x){toast('JSON inválido')}};r.readAsText(f)};
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;if(!localStorage.getItem('assis_maps_no_install'))$('installBar').classList.add('show')});
+$('btnInstall').onclick=async()=>{if(!deferredPrompt)return toast('Menu do navegador → Instalar app');deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBar').classList.remove('show')};
+$('btnDismissInstall').onclick=()=>{localStorage.setItem('assis_maps_no_install','1');$('installBar').classList.remove('show')};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').then(reg=>{reg.update();setInterval(()=>{if(navigator.onLine)reg.update().catch(()=>{})},5*60*1000);reg.addEventListener('updatefound',()=>{const w=reg.installing;if(w)w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)chatSys('Nova versão do Assis Maps instalada; recarregue para aplicar.')})})}).catch(()=>{});
+initMap();updateStatusUI();chatSys('Assis Maps v10: mapa 2D/3D, geocodificação e rotas por serviços OpenStreetMap públicos; pontos viários comunitários são buscados automaticamente para a área visível. Isso não equivale a radar oficial completo, preço de pedágio, feed de acidentes ou trânsito ao vivo.');
+if(!localStorage.getItem(WELCOME))$('welcomeModal').classList.add('show');
+})();
+</script>
+<script type="module">
+import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs';
+let m3=null,route3=null,car3=null,init3=false;
+window.initAssis3D=()=>{if(init3){if(m3)m3.resize();return}init3=true;try{m3=new maplibregl.Map({container:'map3d',style:'https://tiles.openfreemap.org/styles/liberty',center:[-49.7,-27.1],zoom:7,pitch:58,bearing:0,antialias:true, attributionControl:true});window.assistMap3D=m3;m3.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');m3.on('load',()=>{const st=m3.getStyle().layers;let label;for(const l of st){if(l.type==='symbol'&&l.layout&&l.layout['text-field']){label=l.id;break}}m3.addSource('assis-openfreemap',{type:'vector',url:'https://tiles.openfreemap.org/planet'});m3.addLayer({id:'assis-buildings-3d',source:'assis-openfreemap','source-layer':'building',type:'fill-extrusion',minzoom:14,filter:['!=',['get','hide_3d'],true],paint:{'fill-extrusion-color':'#aab7c4','fill-extrusion-height':['interpolate',['linear'],['zoom'],14,0,16,['coalesce',['get','render_height'],8]],'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':0.82}},label);m3.addSource('assis-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]},properties:{}}});m3.addLayer({id:'assis-route-line',type:'line',source:'assis-route',paint:{'line-color':'#2563eb','line-width':6,'line-opacity':0.95,'line-outline-color':'#fff','line-outline-width':1}});if(window.updateAssis3DRoute)window.updateAssis3DRoute();});m3.on('error',e=>console.warn('MapLibre:',e.error||e));}catch(e){console.error(e);document.getElementById('map3d').innerHTML='<div style="padding:18px;color:#111">Não foi possível carregar o mapa vetorial 3D. Verifique a conexão e tente novamente.</div>'}};
+window.updateAssis3DRoute=()=>{if(!m3||!m3.isStyleLoaded())return;const src=m3.getSource('assis-route');if(src)src.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:(window.routeCoords||[]).map(c=>[c[1],c[0]])}});if(window.routeCoords&&window.routeCoords.length>1){const cs=window.routeCoords.map(c=>[c[1],c[0]]);const bounds=cs.reduce((b,c)=>[Math.min(b[0],c[0]),Math.min(b[1],c[1]),Math.max(b[2],c[0]),Math.max(b[3],c[1])],[Infinity,Infinity,-Infinity,-Infinity]);m3.fitBounds([[bounds[0],bounds[1]],[bounds[2],bounds[3]]],{padding:55,maxZoom:15,duration:500});}};
+</script>
+</body>
+</html>

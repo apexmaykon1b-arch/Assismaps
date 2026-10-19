@@ -1,0 +1,10 @@
+ASSIS MAPS v10 — DEPLOY
+
+1. Extract assis-maps-v7/ and import the whole folder into Vercel.
+2. Deploy the project. Do not upload only index.html: the /api functions are required.
+3. Open https://YOUR-DOMAIN/api/health and https://YOUR-DOMAIN/api/data-sources.
+4. Optional live incident layer: configure HERE_API_KEY in Vercel Environment Variables and redeploy.
+5. In the app: Camadas > Fontes oficiais > Verificar fontes e integrações.
+6. To run static checks locally with Node 20+: npm run check and node scripts/test-endpoints.mjs.
+
+Important: no secret/API key is embedded in the ZIP. Live incident data remains disabled until a valid provider key is configured. Historical PRF CSV/ZIP data is not yet imported into a persistent geospatial database. The project is not a finished native APK and the browser cannot guarantee background GPS when closed or suspended.

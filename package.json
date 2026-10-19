@@ -1,0 +1,13 @@
+{
+  "name": "assis-maps",
+  "version": "10.0.0",
+  "private": true,
+  "description": "Assis Maps web/PWA with source-aware road data and optional live incident provider",
+  "scripts": {
+    "check": "node scripts/check-project.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module"
+}
